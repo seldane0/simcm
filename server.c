@@ -7,7 +7,8 @@
 struct rdma_cm_event		*cm_evt, cm_evt_copy;
 struct rdma_event_channel	*cm_ch;
 struct rdma_cm_id			*cm_id;
-struct sockaddr_in			addr;
+struct rdma_addrinfo		*raddr, hints;
+
 uint16_t	port;
 
 int
@@ -31,14 +32,22 @@ main(int argc, char *argv[])
 	}
 	printf ("cm_id=%p\n", cm_id);
 
-	/* Pick IPv4 address. */
-	memset(&addr, 0, sizeof(addr));
-	addr.sin_family = AF_INET;
+	/* Server side we set PASSIVE. */
+	hints.ai_flags = RAI_PASSIVE;
+	hints.ai_port_space = RDMA_PS_TCP;
+
+	/* Get the addr filled so we can use it for binding. */
+	ret = rdma_getaddrinfo("10.1.1.58", "5000", &hints, &raddr);
+	if (ret != 0) {
+		printf("rdma_getaddrinfo() failed\n");
+		return -1;
+	}
 
 	/* Now bind to address. */
-	ret = rdma_bind_addr(cm_id, (struct sockaddr *)&addr);
+	ret = rdma_bind_addr(cm_id, raddr->ai_src_addr);
 	if (ret != 0) {
 		printf("Failed to bind.\n");
+		perror("Error: ");
 		return -1;
 	}
 
