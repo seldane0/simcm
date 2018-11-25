@@ -45,7 +45,7 @@ process_evt(struct rdma_cm_event *evt)
 		break;
 
 	case RDMA_CM_EVENT_REJECTED:
-		printf("%s: REJECTED ... exiting\n");
+		printf("%s: REJECTED ... exiting\n", __func__);
 		ret = 1;
 		break;
 
