@@ -14,17 +14,33 @@ uint16_t	port;
 int
 process_evt(struct rdma_cm_event *evt)
 {
-	int ret = 0;
+	int rval, ret = 0;
 
 	switch (evt->event) {
-	case RDMA_CM_EVENT_CONNECT_REQUEST:
-		printf("%s: CONNECT ... returning reject ...\n", __func__);
-		rdma_reject(evt->id, NULL, 0);
-		ret = 1;
+	case RDMA_CM_EVENT_ADDR_RESOLVED:
+		printf("%s: ADDR_RESOLVED\n", __func__);
+
+		/* Now try to resolve the route ... timeout is 500ms. */
+		rval = rdma_resolve_route(evt->id, 500);
+		if (rval != 0) {
+			printf("%s: rdma_resolve_route() failed. rval=%d\n", __func__, rval);
+			ret = 1;
+		}
 		break;
+
+	case RDMA_CM_EVENT_ROUTE_RESOLVED:
+		printf("%s: ROUTE_RESOLVED ... trying to connect ...\n", __func__);
+		rval = rdma_connect(evt->id, NULL);
+		if (rval != 0) {
+			printf("%s: rdma_connect() failed. rval=%d\n", __func__, rval);
+			ret = 1;
+		}
+		break;
+
 	case RDMA_CM_EVENT_ESTABLISHED:
 		printf("%s: ESTABLISHED\n", __func__);
 		break;
+
 	case RDMA_CM_EVENT_DISCONNECTED:
 		printf("%s: DISCONNECTED\n", __func__);
 		break;
@@ -60,7 +76,7 @@ main(int argc, char *argv[])
 	printf ("cm_id=%p\n", cm_id);
 
 	/* Server side we set PASSIVE. */
-	hints.ai_flags = RAI_PASSIVE;
+	// hints.ai_flags = RAI_PASSIVE;
 	hints.ai_port_space = RDMA_PS_TCP;
 
 	/*
@@ -73,32 +89,13 @@ main(int argc, char *argv[])
 		return -1;
 	}
 
-	/* Now bind to address. */
-	ret = rdma_bind_addr(cm_id, raddr->ai_src_addr);
-	if (ret != 0) {
-		printf("Failed to bind.\n");
-		perror("Error: ");
-		return -1;
-	}
-
-	port = ntohs(rdma_get_src_port(cm_id));
-	printf("Bind port=%d\n", port);
-
-	/* Let's start listening... */
-	ret = rdma_listen(cm_id, 5);
-	if (ret != 0) {
-		printf("Failed to listen.\n");
-		return -1;
-	}
-	port = ntohs(rdma_get_src_port(cm_id));
-	printf("Listen port=%d\n", port);
+	/* Now we call CM to resolv the address. We give 500ms as timeout. */
+	ret = rdma_resolve_addr(cm_id, NULL, raddr->ai_dst_addr, 500);
 
 	/* Now wait for CM events on the CM channel. */
 	while (rdma_get_cm_event(cm_ch, &cm_evt) == 0) {
 		/* Make a local copy of the CM event data. */
 		memcpy(&cm_evt_copy, cm_evt, sizeof(*cm_evt));
-
-		/* Send ACK back to the sender. */
 		rdma_ack_cm_event(cm_evt);
 
 		/* Let's look at the event we received. */
