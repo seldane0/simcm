@@ -83,7 +83,7 @@ main(int argc, char *argv[])
 	 * Get the addr filled so we can use it for binding. 
 	 * We are going to use 5000 as the SID.DPort.
 	 */
-	ret = rdma_getaddrinfo("10.1.1.58", "5000", &hints, &raddr);
+	ret = rdma_getaddrinfo("10.1.1.59", "5000", &hints, &raddr);
 	if (ret != 0) {
 		printf("rdma_getaddrinfo() failed\n");
 		return -1;
