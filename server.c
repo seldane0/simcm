@@ -8,6 +8,7 @@ struct rdma_cm_event		*cm_evt, cm_evt_copy;
 struct rdma_event_channel	*cm_ch;
 struct rdma_cm_id			*cm_id;
 struct rdma_addrinfo		*raddr, hints;
+struct rdma_conn_param		cm_param;
 
 uint16_t	port;
 
@@ -18,9 +19,13 @@ process_evt(struct rdma_cm_event *evt)
 
 	switch (evt->event) {
 	case RDMA_CM_EVENT_CONNECT_REQUEST:
-		printf("%s: CONNECT ... returning reject ...\n", __func__);
+		printf("%s: CONNECT ... returning accept ...\n", __func__);
 		// rdma_reject(evt->id, NULL, 0);
-		rval = rdma_accept(evt->id, NULL);
+		memset(&cm_param, 0, sizeof(cm_param));
+		cm_param.responder_resources = 1;
+		cm_param.initiator_depth = 1;
+		cm_param.retry_count = 7;
+		rval = rdma_accept(evt->id, &cm_param);
 		if (rval != 0) {
 			printf("%s: rdma_accept() failed. rval=%d\n", __func__, rval);
 			ret = 1;
