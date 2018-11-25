@@ -12,11 +12,37 @@ struct rdma_addrinfo		*raddr, hints;
 uint16_t	port;
 
 int
+process_evt(struct rdma_cm_event *evt)
+{
+	int ret = 1;
+
+	switch (evt->event) {
+	case RDMA_CM_EVENT_CONNECT_REQUEST:
+		printf("%s: CONNECT\n", __func__);
+		rdma_reject(evt->id, NULL, 0);
+		break;
+	case RDMA_CM_EVENT_ESTABLISHED:
+		printf("%s: ESTABLISHED\n", __func__);
+		break;
+	case RDMA_CM_EVENT_DISCONNECTED:
+		printf("%s: DISCONNECTED\n", __func__);
+		break;
+	default:
+		printf("%s: unknown event. event=%d\n", __func__, evt->event);
+	}
+	return (ret);
+}
+
+
+int
 main(int argc, char *argv[])
 {
 	int ret;
 
-	/* Create CM channel. */
+	/* 
+	 * Create CM channel. CM channel structure is really  simple. It has a FD in
+	 * it, which we print below.
+	 */
 	cm_ch = rdma_create_event_channel();
 	if (cm_ch == NULL) {
 		printf("Failed to allocate evt_ch.\n");
@@ -36,7 +62,10 @@ main(int argc, char *argv[])
 	hints.ai_flags = RAI_PASSIVE;
 	hints.ai_port_space = RDMA_PS_TCP;
 
-	/* Get the addr filled so we can use it for binding. */
+	/*
+	 * Get the addr filled so we can use it for binding. 
+	 * We are going to use 5000 as the SID.DPort.
+	 */
 	ret = rdma_getaddrinfo("10.1.1.58", "5000", &hints, &raddr);
 	if (ret != 0) {
 		printf("rdma_getaddrinfo() failed\n");
@@ -65,8 +94,16 @@ main(int argc, char *argv[])
 
 	/* Now wait for CM events on the CM channel. */
 	while (rdma_get_cm_event(cm_ch, &cm_evt) == 0) {
+		/* Make a local copy of the CM event data. */
 		memcpy(&cm_evt_copy, cm_evt, sizeof(*cm_evt));
+
+		/* Send ACK back to the sender. */
 		rdma_ack_cm_event(cm_evt);
+
+		/* Let's look at the event we received. */
+		if (process_evt(&cm_evt_copy)) {
+			break;
+		}
 	}
 
 	/* Destroy the CM ID and Channel. */
@@ -75,3 +112,4 @@ main(int argc, char *argv[])
 
 	return 0;
 }
+
