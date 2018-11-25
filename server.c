@@ -22,9 +22,6 @@ process_evt(struct rdma_cm_event *evt)
 		printf("%s: CONNECT ... returning accept ...\n", __func__);
 		// rdma_reject(evt->id, NULL, 0);
 		memset(&cm_param, 0, sizeof(cm_param));
-		cm_param.responder_resources = 1;
-		cm_param.initiator_depth = 1;
-		cm_param.retry_count = 7;
 		rval = rdma_accept(evt->id, &cm_param);
 		if (rval != 0) {
 			printf("%s: rdma_accept() failed. rval=%d\n", __func__, rval);
