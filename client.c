@@ -46,10 +46,17 @@ process_evt(struct rdma_cm_event *evt)
 
 	case RDMA_CM_EVENT_ESTABLISHED:
 		printf("%s: ESTABLISHED\n", __func__);
+
+		rval = rdma_disconnect(evt->id);
+		if (rval != 0) {
+			printf("%s: rdma_disconnect() failed. rval=%d\n", __func__, rval);
+			ret = 1;
+		}
 		break;
 
 	case RDMA_CM_EVENT_DISCONNECTED:
-		printf("%s: DISCONNECTED\n", __func__);
+		printf("%s: DISCONNECTED ... exiting \n", __func__);
+		ret = 1;
 		break;
 	default:
 		printf("%s: unknown event. event=%d\n", __func__, evt->event);

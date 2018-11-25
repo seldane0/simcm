@@ -14,19 +14,24 @@ uint16_t	port;
 int
 process_evt(struct rdma_cm_event *evt)
 {
-	int ret = 0;
+	int rval, ret = 0;
 
 	switch (evt->event) {
 	case RDMA_CM_EVENT_CONNECT_REQUEST:
 		printf("%s: CONNECT ... returning reject ...\n", __func__);
-		rdma_reject(evt->id, NULL, 0);
-		ret = 1;
+		// rdma_reject(evt->id, NULL, 0);
+		rval = rdma_accept(evt->id, NULL);
+		if (rval != 0) {
+			printf("%s: rdma_accept() failed. rval=%d\n", __func__, rval);
+			ret = 1;
+		}
 		break;
 	case RDMA_CM_EVENT_ESTABLISHED:
 		printf("%s: ESTABLISHED\n", __func__);
 		break;
 	case RDMA_CM_EVENT_DISCONNECTED:
 		printf("%s: DISCONNECTED\n", __func__);
+		ret = 1;
 		break;
 	default:
 		printf("%s: unknown event. event=%d\n", __func__, evt->event);
