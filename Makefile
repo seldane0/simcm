@@ -3,7 +3,7 @@ CFLAGS=-Wall
 all: server client
 
 server: server.o 
-	gcc -o server server.o -lrdmacm
+	gcc -o server server.o -lrdmacm -libverbs
 
 server.o: server.c 
 	gcc $(CFLAGS) -c server.c 
