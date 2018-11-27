@@ -119,6 +119,9 @@ process_evt(struct rdma_cm_event *evt)
 	case RDMA_CM_EVENT_ESTABLISHED:
 		printf("%s: ESTABLISHED\n", __func__);
 
+		printf("%s: ... sleeping for 5sec ...\n", __func__);
+		sleep(5);
+
 		rval = rdma_disconnect(evt->id);
 		if (rval != 0) {
 			printf("%s: rdma_disconnect() failed. rval=%d\n", __func__, rval);
