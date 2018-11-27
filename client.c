@@ -12,6 +12,64 @@ struct rdma_conn_param		cm_param;
 
 uint16_t	port;
 
+struct ibv_pd				*ib_pd;
+struct ibv_comp_channel		*ib_ch;
+struct ibv_cq				*ib_cq;
+struct ibv_qp_init_attr		ib_qp_attr;
+
+
+int
+setup_resources(struct rdma_cm_event *evt)
+{
+	int ret;
+
+	ib_pd = ibv_alloc_pd(evt->id->verbs);
+	if (ib_pd == NULL) {
+		printf("%s: ibv_alloc_pd() failed.\n", __func__);
+		return 1;
+	}
+	printf ("%s: ib_pd=%p\n", __func__, ib_pd);
+
+	ib_ch = ibv_create_comp_channel(evt->id->verbs);
+	if (ib_ch == NULL) {
+		printf("%s: ibv_create_comp_channel() failed.\n", __func__);
+		return 1;
+	}
+	printf ("%s: ib_ch=%p\n", __func__, ib_ch);
+
+	/* CQ with 16 entries... */
+	ib_cq = ibv_create_cq(evt->id->verbs, 16, NULL, ib_ch, 0);
+	if (ib_cq == NULL) {
+		printf("%s: ibv_create_cq() failed.\n", __func__);
+		return 1;
+	}
+
+	/* Notify for all events... no filter. */
+	ret = ibv_req_notify_cq(ib_cq, 0);
+	if (ret != 0) {
+		printf("%s: ibv_req_notify()\n", __func__);
+		return 1;
+	}
+
+	/* Last step ... setup the QP. */
+	bzero(&ib_qp_attr, sizeof(ib_qp_attr));
+	ib_qp_attr.cap.max_recv_sge = 2;
+	ib_qp_attr.cap.max_recv_wr  = 8;
+	ib_qp_attr.cap.max_send_sge = 2;
+	ib_qp_attr.cap.max_send_wr  = 8;
+	ib_qp_attr.qp_type			= IBV_QPT_RC;
+	ib_qp_attr.recv_cq			= ib_cq;
+	ib_qp_attr.send_cq			= ib_cq;
+
+	ret = rdma_create_qp(evt->id, ib_pd, &ib_qp_attr);
+	if (ret != 0) {
+		printf("%s: rdma_create_qp() failed.\n", __func__);
+		return 1;
+	}
+
+	return 0;
+}
+
 int
 process_evt(struct rdma_cm_event *evt)
 {
@@ -30,18 +88,27 @@ process_evt(struct rdma_cm_event *evt)
 		break;
 
 	case RDMA_CM_EVENT_ROUTE_RESOLVED:
-		printf("%s: ROUTE_RESOLVED ... trying to connect ...\n", __func__);
+		printf("%s: ROUTE_RESOLVED ...\n", __func__);
 
+		printf("%s: ... setting up resources ...\n", __func__);
+		ret = setup_resources(evt);
+
+		printf("%s: ... trying to connect ...\n", __func__);
 		memset(&cm_param, 0, sizeof(cm_param));
-		cm_param.responder_resources = 1;
-		cm_param.initiator_depth = 1;
-		cm_param.retry_count = 7;
+		cm_param.responder_resources = 3;
+		cm_param.initiator_depth = 3;
+		cm_param.retry_count = 3;
 
 		rval = rdma_connect(evt->id, &cm_param);
 		if (rval != 0) {
 			printf("%s: rdma_connect() failed. rval=%d\n", __func__, rval);
 			ret = 1;
 		}
+		break;
+
+	case RDMA_CM_EVENT_CONNECT_ERROR:
+		printf("%s: CONNECT ERROR\n", __func__);
+		ret = 1;
 		break;
 
 	case RDMA_CM_EVENT_REJECTED:

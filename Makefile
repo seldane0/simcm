@@ -9,7 +9,7 @@ server.o: server.c
 	gcc $(CFLAGS) -c server.c 
 
 client: client.o 
-	gcc -o client client.o -lrdmacm
+	gcc -o client client.o -lrdmacm -libverbs
 
 client.o: client.c 
 	gcc $(CFLAGS) -c client.c 
